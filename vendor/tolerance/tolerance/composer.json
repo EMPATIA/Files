@@ -1,0 +1,42 @@
+{
+    "name": "tolerance/tolerance",
+    "type": "library",
+    "license": "MIT",
+    "description": "Fault tolerance library and micro-services helpers",
+
+    "require": {
+        "ramsey/uuid": "^3.1",
+        "symfony/psr-http-message-bridge": "^0.2.0",
+        "zendframework/zend-diactoros": "^1.3"
+    },
+
+    "require-dev": {
+        "phpspec/phpspec": "~2.5",
+        "behat/behat": "~3.1.0rc1",
+        "behat/symfony2-extension": "^2.1",
+        "phpunit/phpunit": "^5.1",
+        "csa/guzzle-bundle": "~2.0@dev",
+        "jms/aop-bundle": "^1.2",
+        "ruflin/elastica": "^3.0",
+        "symfony/symfony": "~2.8|~3.0",
+        "jms/serializer-bundle": "^1.1",
+        "oldsound/rabbitmq-bundle": "^1.8",
+        "beberlei/metrics": "^2.1"
+    },
+
+    "autoload": {
+        "psr-0": {
+            "Tolerance\\": "src/"
+        }
+    },
+
+    "autoload-dev": {
+        "psr-0": {
+            "Tolerance\\": "tests/"
+        }
+    },
+    
+    "replace": {
+        "sroze/tolerance": "self.version"
+    }
+}

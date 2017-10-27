@@ -1,0 +1,6 @@
+Homestead.yaml
+Homestead.json
+.env
+nbproject/
+.idea/
+storage/files/
