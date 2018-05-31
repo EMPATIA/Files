@@ -3,4 +3,5 @@ Homestead.json
 .env
 nbproject/
 .idea/
+.vscode/
 storage/files/

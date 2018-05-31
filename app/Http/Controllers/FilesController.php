@@ -10,15 +10,14 @@ use Illuminate\Http\Request;
 use App\Http\Requests;
 use App\Http\Controllers\Controller;
 use Exception;
-
 use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Redis;
 use Image;
 use JildertMiedema\LaravelPlupload\Facades\Plupload;
 use URL;
 use Validator;
 use Redirect;
 use Session;
+use Cache;
 
 /**
  * Class FilesController
@@ -219,7 +218,27 @@ class FilesController extends Controller
             $file = File::whereCode($code)->findOrFail($id);
             $quality = 90;
             $typeFile = explode('/', $file->type);
-            if(!empty($typeFile[0]) && $typeFile[0] == 'image' && !empty($typeFile[1])){
+            if(!empty($typeFile[0]) && $typeFile[0] == 'image' && !empty($typeFile[1]) && $typeFile[1] != "gif"){
+                
+                # Define image cache file path
+                $file_cache = storage_path() . '/files/' .$file->file."_cache_w".$request->w."_h".$request->h."_e".$request->extension."_q".$request->quality;
+
+                # Check if image cache file exists
+                if(file_exists($file_cache)) {
+                    # Cache exists: send cache to user
+                    
+                    $fh = fopen($file_cache, "rb") or die();
+                    FilesController::setHttpHeaders(filesize($file_cache),$file->type,$file->name, $inline);
+                    $buffer = 1024*1024;
+                    while (!feof($fh)) {
+                        echo(fread($fh, $buffer)); flush();
+                    }
+                    fclose($fh);
+
+                    die();
+                }
+
+                # If no cache image then process image
                 $image = Image::make(storage_path() . '/files/' .$file->file);
 
                 if ( (!empty($request->h) && is_numeric ($request->h) )|| ( !empty($request->w) && is_numeric ($request->w))){
@@ -244,9 +263,16 @@ class FilesController extends Controller
                 if(!empty($request->quality) && is_numeric ($request->quality)){
                     $quality = $request->quality;
                 }
+                
                 $imageEncode = $image->encode($extensionFile, $quality);
                 FilesController::setHttpHeaders(strlen((string) $imageEncode),'image/'.$extensionFile,$file->name, $inline);
                 echo $imageEncode;
+                
+                # Create image cache file
+                $fh = fopen($file_cache, "w") or die();
+                fwrite($fh, $imageEncode);
+                fclose($fh);
+
                 die();
 
             }else{
@@ -276,8 +302,9 @@ class FilesController extends Controller
                 $userKey = ONE::verifyToken($request);
             }
 
-            Redis::set($userKey . ':code', $uploadKey);
-            Redis::set($userKey . ':timeout', time() + 3600);
+            $userUploadKeys = Cache::get($userKey .":codes",[]);
+            $userUploadKeys[$uploadKey] = time() + env("UPLOAD_KEY_TIMEOUT",900);
+            Cache::put($userKey .":codes",$userUploadKeys,env("UPLOAD_KEY_TIMEOUT",900)*60);
 
             return response()->json(['upload_key' => $uploadKey], 200);
         } catch (Exception $e) {
@@ -294,14 +321,10 @@ class FilesController extends Controller
         }
 
         try {
-            $uploadKey = Redis::get($userKey.':code');
-            $timeout = Redis::get($userKey.':timeout');
-
+            $userUploadKeys = Cache::get($userKey .":codes",[]);
             $uploadKeyReq = $request->header('X-UPLOAD-TOKEN');
-            if (!empty($uploadKey) && $uploadKey == $uploadKeyReq && !empty($timeout) && time() <= $timeout) {
-
-                Redis::set($userKey . ':timeout', time() + 3600);
-
+            
+            if (array_key_exists($uploadKeyReq,$userUploadKeys) && $userUploadKeys[$uploadKeyReq]>=time()) {
                 return Plupload::receive('file', function ($file) use ($userKey) {
                     $f = $this->createFile($file);
 
